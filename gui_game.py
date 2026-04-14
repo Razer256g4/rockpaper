@@ -305,12 +305,22 @@ class SlotMachineFrame(tk.Frame):
         tk.Label(grid_frame, text="Slot 3", font=("Helvetica", 14), bg="#1a252f", fg="white").grid(row=0, column=2, padx=20, pady=5)
         
         self.cbox_vars = []
+        self.slot_frames = []
         for i in range(3):
+            # Frame to provide highlight border
+            s_frame = tk.Frame(grid_frame, bg="#1a252f", padx=5, pady=5)
+            s_frame.grid(row=1, column=i, padx=15)
+            
             var = tk.StringVar(value="rock")
-            cbox = ttk.Combobox(grid_frame, textvariable=var, values=["rock", "paper", "scissors"], state="readonly", font=("Helvetica", 12), width=10)
-            cbox.grid(row=1, column=i, padx=20)
+            cbox = ttk.Combobox(s_frame, textvariable=var, values=["rock", "paper", "scissors"], state="readonly", font=("Helvetica", 12), width=10)
+            cbox.pack()
+            
             self.cbox_vars.append(var)
+            self.slot_frames.append(s_frame)
         
+        self.current_slot_idx = 0
+        self.update_slot_highlight()
+
         # Results area
         self.res_frame = tk.Frame(grid_frame, bg="#34495e", pady=10, relief=tk.SUNKEN, bd=2)
         self.res_frame.grid(row=2, column=0, columnspan=3, pady=20, sticky="ew")
@@ -330,9 +340,17 @@ class SlotMachineFrame(tk.Frame):
         wager_frame.pack()
         tk.Label(wager_frame, text="Wager:", font=("Helvetica", 14), bg="#1a252f", fg="white").pack(side="left")
         
-        self.ent_wager = tk.Entry(wager_frame, font=("Helvetica", 14), width=10, justify="center")
+        self.ent_wager = tk.Entry(wager_frame, font=("Helvetica", 14), width=8, justify="center")
         self.ent_wager.insert(0, "10")
         self.ent_wager.pack(side="left", padx=10)
+
+        # Wager Presets
+        presets_frame = tk.Frame(self, bg="#1a252f")
+        presets_frame.pack(pady=5)
+        for val in [10, 50, 100, 500]:
+            btn = tk.Button(presets_frame, text=f"Bet {val}", font=("Helvetica", 9), bg="#34495e", fg="white", 
+                            command=lambda v=val: self.set_wager(v))
+            btn.pack(side="left", padx=5)
         
         # Action Buttons
         self.controls = tk.Frame(self, bg="#1a252f")
@@ -350,6 +368,35 @@ class SlotMachineFrame(tk.Frame):
         # Check bankruptcy immediately on load
         if self.master.player.balance <= 0:
             self.trigger_game_over()
+        else:
+            self.bind_keys()
+
+    def bind_keys(self):
+        self.master.bind("<Key>", self.handle_keypress)
+
+    def handle_keypress(self, event):
+        key = event.char.lower()
+        if key == 'r': self.fast_fill("rock")
+        elif key == 'p': self.fast_fill("paper")
+        elif key == 's': self.fast_fill("scissors")
+        elif event.keysym == 'Return': self.play_round()
+
+    def fast_fill(self, choice):
+        self.cbox_vars[self.current_slot_idx].set(choice)
+        self.current_slot_idx = (self.current_slot_idx + 1) % 3
+        self.update_slot_highlight()
+
+    def update_slot_highlight(self):
+        # Change the border color of the active slot container
+        for i, frame in enumerate(self.slot_frames):
+            if i == self.current_slot_idx:
+                frame.config(bg="#f1c40f") # Gold Highlight
+            else:
+                frame.config(bg="#1a252f") # Default Background
+
+    def set_wager(self, val):
+        self.ent_wager.delete(0, tk.END)
+        self.ent_wager.insert(0, str(val))
 
     def trigger_game_over(self):
         self.lbl_message.config(text="💀 GAME OVER! AI WINS! 💀\nYou went bankrupt!", fg="#e74c3c")
