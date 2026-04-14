@@ -25,6 +25,7 @@ CHOICES = ['rock', 'paper', 'scissors']
 WIN_MAP = {'rock': 'scissors', 'paper': 'rock', 'scissors': 'paper'}
 SAVE_FILE = 'save_data.json'
 STARTING_BALANCE = 1000
+AI_STARTING_BALANCE = 5000 # The House always has more!
 
 class FileManager:
     """Manages file I/O operations for saving and loading game states."""
@@ -79,6 +80,7 @@ class AIPlayer:
             'paper': {'rock': 0, 'paper': 0, 'scissors': 0},
             'scissors': {'rock': 0, 'paper': 0, 'scissors': 0}
         })
+        self.balance: int = data.get('ai_balance', AI_STARTING_BALANCE)
         self.last_moves: List[str] = []
 
     def get_moves(self) -> List[str]:
@@ -148,6 +150,8 @@ class SoundManager:
             melody = [(200, 200)]
         elif sound_type == "coins":
             melody = [(1200, 50), (1500, 50)] * 3
+        elif sound_type == "repair":
+            melody = [(400, 100), (600, 100), (800, 100)]
 
         if melody:
             threading.Thread(target=self._play, args=(melody,), daemon=True).start()
@@ -163,6 +167,11 @@ class CasinoApp(tk.Tk):
         
         # Initialize Backend
         self.data_store = FileManager.load_data()
+        
+        # Repair Fix: If AI balance was corrupted/negative by the 'void' bug, reset it.
+        if self.data_store.get('ai_balance', 0) <= 0:
+            self.data_store['ai_balance'] = AI_STARTING_BALANCE
+            
         self.player: Optional[Player] = None
         self.ai = AIPlayer(self.data_store)
         self.sound = SoundManager()
@@ -177,6 +186,7 @@ class CasinoApp(tk.Tk):
         if self.player:
             self.data_store[self.player.name] = self.player.to_dict()
             self.data_store['ai_history'] = self.ai.get_history_data()
+            self.data_store['ai_balance'] = self.ai.balance
             FileManager.save_data(self.data_store)
 
     def on_close(self):
@@ -201,8 +211,9 @@ class CasinoApp(tk.Tk):
         self.switch_frame(RulesFrame)
 
     def get_profiles(self) -> List[str]:
-        """Returns a list of profile names up to 4, excluding ai_history."""
-        return [k for k in self.data_store.keys() if k != 'ai_history'][:4]
+        """Returns a list of profile names up to 4, excluding AI data keys."""
+        to_exclude = ['ai_history', 'ai_balance']
+        return [k for k in self.data_store.keys() if k not in to_exclude][:4]
 
     def create_profile(self, name: str):
         """Creates a new profile if space is available."""
@@ -251,6 +262,10 @@ class LoginFrame(tk.Frame):
             if i < len(profiles):
                 name = profiles[i]
                 p_data = self.master.data_store[name]
+                
+                # Safety check: ensure p_data is a dictionary
+                if not isinstance(p_data, dict):
+                    continue
                 
                 tk.Label(slot_frame, text=name.upper(), font=("Helvetica", 14, "bold"), bg="#34495e", fg="#f1c40f").pack()
                 tk.Label(slot_frame, text=f"Balance: {p_data['balance']} | Games: {p_data['total_games']}", font=("Helvetica", 10), bg="#34495e", fg="white").pack()
@@ -339,8 +354,10 @@ class SlotMachineFrame(tk.Frame):
         header.pack(fill="x")
         
         tk.Label(header, text="🎰 AI MEGA SLOTS 🎰", font=("Helvetica", 16, "bold"), bg="#2c3e50", fg="white").pack(side="left", padx=20, pady=10)
-        self.lbl_balance = tk.Label(header, text=f"Balance: {master.player.balance}", font=("Helvetica", 14, "bold"), bg="#2c3e50", fg="#f1c40f")
-        self.lbl_balance.pack(side="right", padx=20, pady=10)
+        self.lbl_ai_balance = tk.Label(header, text=f"AI Bank: {master.ai.balance}", font=("Helvetica", 12, "bold"), bg="#2c3e50", fg="#e74c3c")
+        self.lbl_ai_balance.pack(side="right", padx=10, pady=10)
+        self.lbl_balance = tk.Label(header, text=f"Balance: {master.player.balance}", font=("Helvetica", 12, "bold"), bg="#2c3e50", fg="#f1c40f")
+        self.lbl_balance.pack(side="right", padx=10, pady=10)
         
         # Selection Grid
         grid_frame = tk.Frame(self, bg="#1a252f")
@@ -379,7 +396,10 @@ class SlotMachineFrame(tk.Frame):
         self.lbl_outcome.pack(pady=2)
         
         self.lbl_message = tk.Label(self.res_frame, text="Place your wager and Spin!", font=("Helvetica", 12, "bold"), bg="#34495e", fg="#f1c40f")
-        self.lbl_message.pack(pady=10)
+        self.lbl_message.pack(pady=5)
+        
+        self.lbl_calc = tk.Label(self.res_frame, text="", font=("Courier", 10), bg="#34495e", fg="#bdc3c7")
+        self.lbl_calc.pack(pady=2)
         
         # Wager Input
         wager_frame = tk.Frame(self, bg="#1a252f")
@@ -412,7 +432,7 @@ class SlotMachineFrame(tk.Frame):
         self.btn_spin.pack(side="left", padx=10)
         
         # Check bankruptcy immediately on load
-        if self.master.player.balance <= 0:
+        if self.master.player.balance <= 0 or self.master.ai.balance <= 0:
             self.trigger_game_over()
         else:
             self.bind_keys()
@@ -447,20 +467,28 @@ class SlotMachineFrame(tk.Frame):
 
     def trigger_game_over(self):
         self.master.sound.play("loss")
-        self.lbl_message.config(text="💀 GAME OVER! AI WINS! 💀\nYou went bankrupt!", fg="#e74c3c")
+        if self.master.player.balance <= 0:
+            text = "💀 GAME OVER! AI WINS! 💀\nYou went bankrupt!"
+        else:
+            text = "🎉 VICTORY! HOUSE IS BROKE! 🎉\nYou won the Casino!"
+            
+        self.lbl_message.config(text=text, fg="#e74c3c" if self.master.player.balance <= 0 else "#2ecc71")
         self.btn_spin.config(state="disabled", bg="#7f8c8d")
         
-        self.btn_restart = tk.Button(self.controls, text="Restart Game", font=("Helvetica", 14, "bold"), width=15, bg="#27ae60", fg="white", command=self.restart_game)
+        self.btn_restart = tk.Button(self.controls, text="New Game", font=("Helvetica", 14, "bold"), width=15, bg="#27ae60", fg="white", command=self.restart_game)
         self.btn_restart.pack(side="left", padx=10)
 
     def restart_game(self):
         self.master.sound.play("coins")
         self.master.player.balance = STARTING_BALANCE
+        self.master.ai.balance = AI_STARTING_BALANCE
         self.master.player.total_games = 0
         self.btn_restart.destroy()
         self.btn_spin.config(state="normal", bg="#e67e22")
         self.lbl_balance.config(text=f"Balance: {self.master.player.balance}")
+        self.lbl_ai_balance.config(text=f"AI Bank: {self.master.ai.balance}")
         self.lbl_message.config(text="Balance reset! Place your wager.", fg="#2ecc71")
+        self.lbl_calc.config(text="")
         self.master.save_game()
 
     def evaluate_slot(self, user_move: str, comp_move: str) -> str:
@@ -469,33 +497,55 @@ class SlotMachineFrame(tk.Frame):
         else: return 'LOSS'
 
     def play_round(self):
-        self.master.sound.play("spin")
         try:
             wager = int(self.ent_wager.get())
         except ValueError:
             self.lbl_message.config(text="Error! Wager must be a number.", fg="#e74c3c")
-            self.master.sound.play("error")
             return
             
-        if wager <= 0:
-            self.lbl_message.config(text="Error! Wager must be greater than 0.", fg="#e74c3c")
-            self.master.sound.play("error")
+        if wager <= 0 or not self.master.player.bet(wager):
+            self.lbl_message.config(text="Error! Invalid wager or no tokens.", fg="#e74c3c")
             return
-            
-        if not self.master.player.bet(wager):
-            self.lbl_message.config(text=f"Error! Not enough tokens.\nCurrent Balance: {self.master.player.balance}", fg="#e74c3c")
-            self.master.sound.play("error")
-            return
-            
+
+        # ZERO-SUM FIX: The AI 'collects' the wager immediately at the start of the round
+        self.master.ai.balance += wager
+        self.lbl_ai_balance.config(text=f"AI Bank: {self.master.ai.balance}")
+
+        self.btn_spin.config(state="disabled")
+        self.lbl_message.config(text="🎰 SPINNING... 🎰", fg="#f1c40f")
+        self.lbl_calc.config(text="")
+        
         user_moves = [v.get() for v in self.cbox_vars]
         comp_moves = self.master.ai.get_moves()
         outcomes = [self.evaluate_slot(u, c) for u, c in zip(user_moves, comp_moves)]
         
-        # Update Displays
-        self.lbl_user_res.config(text="User: " + " | ".join(u.upper() for u in user_moves))
-        self.lbl_comp_res.config(text="Comp: " + " | ".join(c.upper() for c in comp_moves))
-        self.lbl_outcome.config(text="RES:  " + " | ".join(outcomes))
-        
+        # Start Shuffle Animation
+        self.shuffle_frames(20, user_moves, comp_moves, outcomes, wager)
+
+    def shuffle_frames(self, count, user_moves, comp_moves, outcomes, wager):
+        if count > 0:
+            temp_comp = [random.choice(CHOICES) for _ in range(3)]
+            self.lbl_comp_res.config(text="Comp: " + " | ".join(c.upper() for c in temp_comp))
+            self.master.sound.play("click")
+            self.master.after(50, lambda: self.shuffle_frames(count-1, user_moves, comp_moves, outcomes, wager))
+        else:
+            self.reveal_slot(0, user_moves, comp_moves, outcomes, wager)
+
+    def reveal_slot(self, slot_idx, user_moves, comp_moves, outcomes, wager):
+        if slot_idx < 3:
+            current_revealed_comp = comp_moves[:slot_idx+1] + ["?"] * (2 - slot_idx)
+            current_revealed_outcomes = outcomes[:slot_idx+1] + ["?"] * (2 - slot_idx)
+            
+            self.lbl_user_res.config(text="User: " + " | ".join(u.upper() for u in user_moves))
+            self.lbl_comp_res.config(text="Comp: " + " | ".join(c.upper() for c in current_revealed_comp))
+            self.lbl_outcome.config(text="RES:  " + " | ".join(current_revealed_outcomes))
+            
+            self.master.sound.play("click")
+            self.master.after(400, lambda: self.reveal_slot(slot_idx+1, user_moves, comp_moves, outcomes, wager))
+        else:
+            self.finalize_round(user_moves, comp_moves, outcomes, wager)
+
+    def finalize_round(self, user_moves, comp_moves, outcomes, wager):
         wins = outcomes.count('WIN')
         ties = outcomes.count('TIE')
         losses = outcomes.count('LOSS')
@@ -504,85 +554,65 @@ class SlotMachineFrame(tk.Frame):
         
         payout = 0
         message = ""
+        multiplier = 0
         
         if wins == 3:
-            if unique_user == 1:
-                message = "🔥 MEGA JACKPOT! 🔥\nTriple Same Element Wins!"
-                payout = wager * 10
-            elif unique_user == 3:
-                message = "🌈 RAINBOW JACKPOT! 🌈\nAll Different Element Wins!"
-                payout = wager * 7
-            else:
-                message = "💰 JACKPOT! 💰\n3 Wins!"
-                payout = wager * 5
+            multiplier = 10 if unique_user == 1 else (7 if unique_user == 3 else 5)
+            message = "🔥 MEGA JACKPOT! 🔥" if multiplier == 10 else ("🌈 RAINBOW JACKPOT! 🌈" if multiplier == 7 else "💰 JACKPOT! 💰")
+            payout = wager * multiplier
         elif wins == 2:
-            if unique_user == 1:
-                message = "⚡ DOUBLE STRIKE! ⚡\n2 Wins with Same Element!"
-                payout = int(wager * 2.5)
-            else:
-                message = "👍 NICE PLAY! 👍\n2 Wins!"
-                payout = wager * 2
+            multiplier = 2.5 if unique_user == 1 else 2
+            message = "⚡ DOUBLE STRIKE! ⚡" if multiplier == 2.5 else "👍 NICE PLAY! 👍"
+            payout = int(wager * multiplier)
         elif losses == 3:
-            if unique_comp == 1:
-                message = "💀 AI MEGA JACKPOT! 💀\nAI hit Triple Same Element!"
-                payout = - (wager * 10 - wager)
-            elif unique_comp == 3:
-                message = "🤖 AI RAINBOW JACKPOT! 🤖\nAI hit All Different Elements!"
-                payout = - (wager * 7 - wager)
-            else:
-                message = "💸 AI JACKPOT! 💸\nAI got 3 Wins!"
-                payout = - (wager * 5 - wager)
+            multiplier = 10 if unique_comp == 1 else (7 if unique_comp == 3 else 5)
+            message = "💀 AI MEGA JACKPOT! 💀" if multiplier == 10 else ("🤖 AI RAINBOW! 🤖" if multiplier == 7 else "💸 AI JACKPOT! 💸")
+            payout = - (int(wager * multiplier) - wager)
         elif losses == 2:
-            if unique_comp == 1:
-                message = "🌩️ AI DOUBLE STRIKE! 🌩️\nAI got 2 Wins with Same Element!"
-                payout = - (int(wager * 2.5) - wager)
-            else:
-                message = "📉 AI NICE PLAY! 📉\nAI got 2 Wins!"
-                payout = - (wager * 2 - wager)
+            multiplier = 2.5 if unique_comp == 1 else 2
+            message = "🌩️ AI DOUBLE STRIKE! 🌩️" if multiplier == 2.5 else "📉 AI NICE PLAY! 📉"
+            payout = - (int(wager * multiplier) - wager)
         elif wins == 1 and ties == 2:
-            message = "🛡️ CLOSE CALL 🛡️\n1 Win, 2 Ties!"
-            payout = int(wager * 1.5)
+            multiplier = 1.5; message = "🛡️ CLOSE CALL 🛡️"; payout = int(wager * 1.5)
         elif losses == 1 and ties == 2:
-            message = "😬 AI CLOSE CALL 😬\nAI got 1 Win, 2 Ties!"
-            payout = - (int(wager * 1.5) - wager)
+            multiplier = 1.5; message = "😬 AI CLOSE CALL 😬"; payout = - (int(wager * 1.5) - wager)
         elif ties == 3:
-            message = "🤝 STANDOFF! 🤝\n3 Ties!"
-            payout = int(wager * 1.2)
+            multiplier = 1.2; message = "🤝 STANDOFF! 🤝"; payout = int(wager * 1.2)
         elif wins == 1 and losses == 1 and ties == 1:
-            message = "⚖️ DEAD HEAT ⚖️\n1 Win, 1 Loss, 1 Tie!"
-            payout = wager
+            multiplier = 1.0; message = "⚖️ DEAD HEAT ⚖️"; payout = wager
         else:
-            message = "❌ YOU LOSE! ❌\nAI took the round!"
-            payout = 0
+            multiplier = 0; message = "❌ YOU LOSE! ❌"; payout = 0
             
-        # Payout
+        # Payout Transfer
         self.master.player.win(payout)
+        self.master.ai.balance -= payout
         self.master.player.total_games += 1
         
-        # AI Learning
+        # Audio / Visual Feedback
         self.master.ai.update_history(user_moves)
         self.master.save_game()
         
-        # Sync Balance Header
         self.lbl_balance.config(text=f"Balance: {self.master.player.balance}")
+        self.lbl_ai_balance.config(text=f"AI Bank: {self.master.ai.balance}")
+        self.btn_spin.config(state="normal")
         
-        # Show Integrated Result
         if payout > 0:
-            if "JACKPOT" in message:
-                self.master.sound.play("jackpot")
-            else:
-                self.master.sound.play("win")
+            self.master.sound.play("jackpot" if multiplier >= 5 else "win")
             self.lbl_message.config(text=f"{message}\nYou won {payout} Tokens!", fg="#2ecc71")
+            calc_text = f"Calculation: {wager} (Bet) x {multiplier}x multiplier = {payout} gain"
         elif payout == 0:
             self.master.sound.play("loss")
             self.lbl_message.config(text=f"{message}\nYou lost your {wager} Token wager.", fg="#e74c3c")
+            calc_text = f"Calculation: {wager} (Bet) x 0x multiplier = {wager} loss"
         else:
             self.master.sound.play("loss")
             total_lost = wager + abs(payout)
             self.lbl_message.config(text=f"{message}\nYou lost {total_lost} Tokens!", fg="#e74c3c")
+            calc_text = f"Calculation: {wager} (Bet) + {abs(payout)} (AI Jackpot penalty) = {total_lost} total loss"
             
-        # Check bankruptcy
-        if self.master.player.balance <= 0:
+        self.lbl_calc.config(text=calc_text)
+            
+        if self.master.player.balance <= 0 or self.master.ai.balance <= 0:
             self.trigger_game_over()
 
 if __name__ == "__main__":
