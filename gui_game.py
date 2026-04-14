@@ -16,6 +16,8 @@ from tkinter import ttk
 import random
 import json
 import os
+import winsound
+import threading
 from typing import List, Dict, Optional
 
 # Global Constants
@@ -118,6 +120,38 @@ class AIPlayer:
     def get_history_data(self) -> Dict:
         return self.history
 
+class SoundManager:
+    """Handles playing chiptune-style sounds using the system speaker."""
+    @staticmethod
+    def _play(melody):
+        """Internal helper to play a series of (freq, duration) tuples."""
+        try:
+            for freq, dur in melody:
+                winsound.Beep(freq, dur)
+        except Exception:
+            pass # Silent failure if speaker is unavailable
+
+    def play(self, sound_type: str):
+        """Plays a pre-defined jingle in a background thread."""
+        melody = []
+        if sound_type == "click":
+            melody = [(800, 50)]
+        elif sound_type == "spin":
+            melody = [(400 + i*50, 40) for i in range(5)]
+        elif sound_type == "win":
+            melody = [(523, 100), (659, 100), (784, 100), (1046, 200)]
+        elif sound_type == "loss":
+            melody = [(440, 150), (349, 150), (261, 300)]
+        elif sound_type == "jackpot":
+            melody = [(1046, 100), (1318, 100), (1568, 100), (1046, 100)] * 2
+        elif sound_type == "error":
+            melody = [(200, 200)]
+        elif sound_type == "coins":
+            melody = [(1200, 50), (1500, 50)] * 3
+
+        if melody:
+            threading.Thread(target=self._play, args=(melody,), daemon=True).start()
+
 class CasinoApp(tk.Tk):
     """The main Graphical User Interface controller."""
     def __init__(self):
@@ -131,6 +165,7 @@ class CasinoApp(tk.Tk):
         self.data_store = FileManager.load_data()
         self.player: Optional[Player] = None
         self.ai = AIPlayer(self.data_store)
+        self.sound = SoundManager()
         
         self.current_frame = None
         self.show_login_screen()
@@ -242,6 +277,17 @@ class LoginFrame(tk.Frame):
             return
         self.master.create_profile(name)
         self.refresh_slots()
+
+    def login(self):
+        username = self.entry.get().strip().lower()
+        if not username:
+            self.lbl_error.config(text="Error: Username cannot be empty!")
+            self.master.sound.play("error")
+            return
+            
+        self.master.sound.play("win")
+        self.master.player = Player(username, self.master.data_store)
+        self.master.show_slot_machine()
 
     def load_profile(self, name):
         self.master.player = Player(name, self.master.data_store)
@@ -382,6 +428,7 @@ class SlotMachineFrame(tk.Frame):
         elif event.keysym == 'Return': self.play_round()
 
     def fast_fill(self, choice):
+        self.master.sound.play("click")
         self.cbox_vars[self.current_slot_idx].set(choice)
         self.current_slot_idx = (self.current_slot_idx + 1) % 3
         self.update_slot_highlight()
@@ -399,6 +446,7 @@ class SlotMachineFrame(tk.Frame):
         self.ent_wager.insert(0, str(val))
 
     def trigger_game_over(self):
+        self.master.sound.play("loss")
         self.lbl_message.config(text="💀 GAME OVER! AI WINS! 💀\nYou went bankrupt!", fg="#e74c3c")
         self.btn_spin.config(state="disabled", bg="#7f8c8d")
         
@@ -406,6 +454,7 @@ class SlotMachineFrame(tk.Frame):
         self.btn_restart.pack(side="left", padx=10)
 
     def restart_game(self):
+        self.master.sound.play("coins")
         self.master.player.balance = STARTING_BALANCE
         self.master.player.total_games = 0
         self.btn_restart.destroy()
@@ -420,18 +469,22 @@ class SlotMachineFrame(tk.Frame):
         else: return 'LOSS'
 
     def play_round(self):
+        self.master.sound.play("spin")
         try:
             wager = int(self.ent_wager.get())
         except ValueError:
             self.lbl_message.config(text="Error! Wager must be a number.", fg="#e74c3c")
+            self.master.sound.play("error")
             return
             
         if wager <= 0:
             self.lbl_message.config(text="Error! Wager must be greater than 0.", fg="#e74c3c")
+            self.master.sound.play("error")
             return
             
         if not self.master.player.bet(wager):
             self.lbl_message.config(text=f"Error! Not enough tokens.\nCurrent Balance: {self.master.player.balance}", fg="#e74c3c")
+            self.master.sound.play("error")
             return
             
         user_moves = [v.get() for v in self.cbox_vars]
@@ -515,10 +568,16 @@ class SlotMachineFrame(tk.Frame):
         
         # Show Integrated Result
         if payout > 0:
+            if "JACKPOT" in message:
+                self.master.sound.play("jackpot")
+            else:
+                self.master.sound.play("win")
             self.lbl_message.config(text=f"{message}\nYou won {payout} Tokens!", fg="#2ecc71")
         elif payout == 0:
+            self.master.sound.play("loss")
             self.lbl_message.config(text=f"{message}\nYou lost your {wager} Token wager.", fg="#e74c3c")
         else:
+            self.master.sound.play("loss")
             total_lost = wager + abs(payout)
             self.lbl_message.config(text=f"{message}\nYou lost {total_lost} Tokens!", fg="#e74c3c")
             

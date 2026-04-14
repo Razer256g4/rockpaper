@@ -1,23 +1,23 @@
 {
     "alok": {
-        "balance": 0,
-        "total_games": 31
+        "balance": 20,
+        "total_games": 2
     },
     "ai_history": {
         "rock": {
-            "rock": 31,
-            "paper": 15,
+            "rock": 36,
+            "paper": 18,
             "scissors": 7
         },
         "paper": {
-            "rock": 9,
-            "paper": 13,
+            "rock": 10,
+            "paper": 17,
             "scissors": 9
         },
         "scissors": {
-            "rock": 9,
+            "rock": 10,
             "paper": 6,
-            "scissors": 24
+            "scissors": 25
         }
     },
     "123": {
