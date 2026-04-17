@@ -47,7 +47,7 @@ Ensure you are on a Windows machine (for `winsound` support) and have Python 3.x
 ```bash
 # Clone the repository and navigate to the folder
 cd rockpaper
-python gui_game.py
+python main.py
 ```
 
 ### Controls
@@ -65,10 +65,19 @@ python gui_game.py
 ## 🏗️ Project Structure
 
 ```text
-├── gui_game.py       # Main Graphical Application
-├── game.py           # Original CLI version (Legacy)
-├── save_data.json    # Auto-generated save file
-└── README.md         # This documentation
+├── constants.py       # Constants and configuration
+├── main.py            # Entry point for the Application
+├── models/            # Logical state representations
+│   ├── player.py
+│   └── ai_player.py
+├── managers/          # Helper utilities
+│   ├── file_manager.py
+│   └── sound_manager.py
+├── ui/                # UI presentation
+│   ├── app.py
+│   └── frames/
+├── save_data.json     # Auto-generated save file
+└── README.md          # This documentation
 ```
 
 Created by **Antigravity** (AI Assistant) in collaboration with the **USER** for COMP9001.

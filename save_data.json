@@ -1,25 +1,25 @@
 {
     "ai_history": {
         "rock": {
-            "rock": 56,
+            "rock": 57,
             "paper": 41,
-            "scissors": 18
+            "scissors": 21
         },
         "paper": {
-            "rock": 25,
+            "rock": 26,
             "paper": 25,
-            "scissors": 22
+            "scissors": 25
         },
         "scissors": {
-            "rock": 25,
-            "paper": 13,
-            "scissors": 33
+            "rock": 26,
+            "paper": 19,
+            "scissors": 39
         }
     },
-    "ai_balance": 4480,
+    "ai_balance": 4335,
     "alok": {
-        "balance": 1520,
-        "total_games": 3
+        "balance": 1665,
+        "total_games": 11
     },
     "second": {
         "balance": 1000,
