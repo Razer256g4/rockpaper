@@ -7,9 +7,9 @@ Welcome to the **AI Multi-Slot RPS Casino**, a high-stakes, predictive AI-driven
 - **Predictive AI Strategy**: The AI doesn't pick randomly. It uses Bigram frequency analysis to learn your move patterns and counter them in real-time.
 - **Save Slot Management**: Manage up to 4 unique player profiles with persistent balances and statistics saved to disk.
 - **Symmetrical Betting Mechanics**: Win big with 10x Jackpots—but be careful! The AI can hit those same jackpots, forcing you to pay out from your own balance.
-- **Chiptune Audio System**: Built-in background audio jingles using the Windows system speaker for immersive feedback.
+- **Cross-Platform Audio**: MP3 sound effects (Boolean SFX Pack) plus a synthesized chiptune music loop, powered by `pygame.mixer`. Works on Windows, macOS and Linux.
 - **Speed-Input GUI**: Play the entire game using only your keyboard via hotkeys (`R`, `P`, `S`, `Enter`).
-- **Zero Dependencies**: Native Python implementation using `tkinter` and `winsound`—no external libraries to install.
+- **Minimal Dependencies**: Standard library + `pygame` only (see `requirements.txt`).
 
 ---
 
@@ -20,16 +20,16 @@ The application is built using a decoupled, modular class-based architecture:
 - `CasinoApp(tk.Tk)`: The core event-driven engine and window manager.
 - `Player`: Encapsulates user state, including balance tracking and data serialization.
 - `AIPlayer`: The "Brain" of the game. It manages the Markov-like history state and prediction logic.
-- `SoundManager`: Handles asynchronous chiptune generation using system threading.
+- `SoundManager`: Loads MP3 SFX via `pygame.mixer` and runs a synthesized chiptune music loop on a background thread.
 - `FileManager`: High-level static interface for robust JSON data persistence.
 
-### 2. Predictive AI (Bigram Analysis)
-The AI opponent implements a learning algorithm that tracks your transitions. It stores data in a nested dictionary:
-`{ 'rock': {'rock': 5, 'paper': 2, 'scissors': 0} }`
-When you play a 'Rock', the AI looks at what you historically play *next*. If it predicts you will play 'Rock' again (based on its frequency counter), it will play 'Paper' to counter you.
+### 2. Predictive AI (Blended Trigram + Decay)
+The AI opponent implements a learning algorithm that tracks your move transitions independently for each of the 3 slots using both **Trigram** (2 layers deep) and **Bigram** (1 layer deep) models.
+- **Blended Score**: Predictions weigh Trigrams at 2.0x and Bigrams at 1.0x to gracefully fall back on broader patterns when precise historical sequences are sparse.
+- **Memory Decay**: A `DECAY_FACTOR` of `0.95` is applied to historical probabilities every turn, ensuring older strategies fade so the AI dynamically reacts if you change your patterns!
 
 ### 3. Asynchronous Threading
-To prevent the GUI from freezing while playing musical beeps, the `SoundManager` spawns a background `daemon` thread for every jingle. This ensures the animation and input remain 100% responsive.
+SFX playback is non-blocking via `pygame.mixer` channels. The chiptune music loop runs in a daemon thread that synthesizes sine-wave tones into raw PCM buffers, keeping the GUI 100% responsive on every platform.
 
 ### 4. Robust File I/O & Exception Handling
 Data is saved in a JSON format (`save_data.json`). The program includes multiple `try...except` blocks to handle:
@@ -43,10 +43,10 @@ Data is saved in a JSON format (`save_data.json`). The program includes multiple
 ## 🎮 How to Play
 
 ### Installation
-Ensure you are on a Windows machine (for `winsound` support) and have Python 3.x installed.
+Requires Python 3.x. Works on Windows, macOS and Linux.
 ```bash
-# Clone the repository and navigate to the folder
 cd rockpaper
+pip install -r requirements.txt
 python main.py
 ```
 
@@ -67,6 +67,8 @@ python main.py
 ```text
 ├── constants.py       # Constants and configuration
 ├── main.py            # Entry point for the Application
+├── requirements.txt   # External dependencies (pygame)
+├── assets/sounds/     # MP3 SFX (Boolean SFX Pack)
 ├── models/            # Logical state representations
 │   ├── player.py
 │   └── ai_player.py
@@ -76,6 +78,9 @@ python main.py
 ├── ui/                # UI presentation
 │   ├── app.py
 │   └── frames/
+│       ├── login_frame.py
+│       ├── rules_frame.py
+│       └── slot_machine_frame.py
 ├── save_data.json     # Auto-generated save file
 └── README.md          # This documentation
 ```

@@ -1,28 +1,81 @@
 {
     "ai_history": {
         "rock": {
-            "rock": 57,
-            "paper": 41,
-            "scissors": 21
+            "rock": 31.124954349402476,
+            "paper": 21.457699081083305,
+            "scissors": 19.39721529770162
         },
         "paper": {
-            "rock": 26,
-            "paper": 25,
-            "scissors": 25
+            "rock": 16.65489941523483,
+            "paper": 17.74937447788824,
+            "scissors": 14.88482512887877
         },
         "scissors": {
-            "rock": 26,
-            "paper": 19,
-            "scissors": 39
+            "rock": 19.81769037337077,
+            "paper": 13.932961491476313,
+            "scissors": 20.482349122852234
         }
     },
-    "ai_balance": 4335,
+    "ai_balance": 4046,
     "alok": {
-        "balance": 1665,
-        "total_games": 11
+        "balance": 1954,
+        "total_games": 33
     },
     "second": {
         "balance": 1000,
         "total_games": 0
+    },
+    "ai_trigram": {
+        "rock": {
+            "rock": {
+                "rock": 1.7064002768293784,
+                "paper": 0.0,
+                "scissors": 1.7962108177151352
+            },
+            "paper": {
+                "rock": 0.0,
+                "paper": 0.0,
+                "scissors": 0.0
+            },
+            "scissors": {
+                "rock": 1.8907482291738267,
+                "paper": 4.667136888281249,
+                "scissors": 0.0
+            }
+        },
+        "paper": {
+            "rock": {
+                "rock": 0.0,
+                "paper": 0.0,
+                "scissors": 0.0
+            },
+            "paper": {
+                "rock": 3.0,
+                "paper": 2.8499999999999996,
+                "scissors": 0.0
+            },
+            "scissors": {
+                "rock": 2.321342812499999,
+                "paper": 0.0,
+                "scissors": 0.0
+            }
+        },
+        "scissors": {
+            "rock": {
+                "rock": 0.0,
+                "paper": 0.0,
+                "scissors": 4.433780043867186
+            },
+            "paper": {
+                "rock": 0.0,
+                "paper": 2.7074999999999996,
+                "scissors": 2.2052756718749986
+            },
+            "scissors": {
+                "rock": 0.0,
+                "paper": 0.0,
+                "scissors": 0.0
+            }
+        }
     }
 }

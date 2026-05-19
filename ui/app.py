@@ -16,7 +16,7 @@ from ui.frames.slot_machine_frame import SlotMachineFrame
 class CasinoApp(tk.Tk):
     """Main application window and state manager."""
 
-    RESERVED_KEYS = {"ai_history", "ai_balance"}
+    RESERVED_KEYS = {"ai_history", "ai_trigram", "ai_balance"}
 
     def __init__(self):
         super().__init__()
@@ -46,7 +46,9 @@ class CasinoApp(tk.Tk):
         if self.player:
             self.data_store[self.player.name] = self.player.to_dict()
 
-        self.data_store["ai_history"] = self.ai.get_history_data()
+        history_state = self.ai.get_history_data()
+        self.data_store["ai_history"] = history_state["ai_history"]
+        self.data_store["ai_trigram"] = history_state["ai_trigram"]
         self.data_store["ai_balance"] = self.ai.balance
         FileManager.save_data(self.data_store)
 
